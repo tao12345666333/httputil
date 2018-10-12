@@ -1,0 +1,64 @@
+# Author: Jintao Zhang <zhangjintao9020@gmail.com>
+image: docker:latest
+
+services:
+  - docker:dind
+
+variables:
+  DOCKER_DRIVER: overlay2
+  IMAGE_NAME: $CI_REGISTRY/$CI_PROJECT_PATH
+
+stages:
+  - test
+  - build
+
+before_script:
+  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+
+test36:
+  stage: test
+  script:
+    - docker build --build-arg tag=3.6-alpine --build-arg requirements=requirements-dev.txt -t local/app:py36 .
+    - docker images
+    - docker run --rm local/app:py36 py.test -v
+    - docker run --rm local/app:py36 py.test --flake8
+
+test37:
+  stage: test
+  script:
+    - docker build --build-arg tag=3.7-alpine  --build-arg requirements=requirements-dev.txt -t local/app:py37 .
+    - docker images
+    - docker run --rm local/app:py37 py.test -v
+    - docker run --rm local/app:py37 py.test --flake8
+
+build-dist:
+  stage: build
+  image: "python:3.7-alpine"
+  script:
+    - python setup.py sdist
+  artifacts:
+    paths:
+      - dist/*.tar.gz
+    expire_in: 1 week
+
+build-image:
+  stage: build
+  script:
+    - docker build --build-arg tag=3.7-alpine  --build-arg requirements=requirements.txt -t "$IMAGE_NAME:latest" .
+    - docker images
+    - docker push "$IMAGE_NAME:latest"
+
+#deploy:
+#  stage: deploy
+#  image: "centos"
+#  script:
+#    - 'ssh-agent || (yum install -y openssh-clients)'
+#    - eval $(ssh-agent -s)
+#    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+#    - mkdir -p ~/.ssh
+#    - chmod 700 ~/.ssh
+#    - ssh-keyscan -p $SSH_PORT $DEPLOY_HOST >> ~/.ssh/known_hosts
+#    - chmod 644 ~/.ssh/known_hosts
+ 
+after_script:
+  - docker logout $CI_REGISTRY
