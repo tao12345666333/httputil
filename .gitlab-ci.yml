@@ -12,9 +12,6 @@ stages:
   - test
   - build
 
-before_script:
-  - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
-
 test36:
   stage: test
   script:
@@ -44,9 +41,11 @@ build-dist:
 build-image:
   stage: build
   script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
     - docker build --build-arg tag=3.7-alpine  --build-arg requirements=requirements.txt -t "$IMAGE_NAME:latest" .
     - docker images
     - docker push "$IMAGE_NAME:latest"
+    - docker logout $CI_REGISTRY
 
 #deploy:
 #  stage: deploy
@@ -59,6 +58,3 @@ build-image:
 #    - chmod 700 ~/.ssh
 #    - ssh-keyscan -p $SSH_PORT $DEPLOY_HOST >> ~/.ssh/known_hosts
 #    - chmod 644 ~/.ssh/known_hosts
- 
-after_script:
-  - docker logout $CI_REGISTRY
